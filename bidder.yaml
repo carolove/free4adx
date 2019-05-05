@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bidder-hs
+  labels:
+    app: bidder
+spec:
+  ports:
+  - port: 8080
+    name: web
+    targetPort: 8080
+  clusterIP: None
+  selector:
+    app: bidder
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bidder-cs
+  labels:
+    app: bidder
+spec:
+  ports:
+  - port: 8080
+    name: web
+    targetPort: 8080
+  selector:
+    app: bidder
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bidder-np
+  labels:
+    app: bidder
+spec:
+  ports:
+  - port: 8080
+    name: web
+    targetPort: 8080
+  selector:
+    app: bidder
+  type: NodePort
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: bidder-pdb
+spec:
+  selector:
+    matchLabels:
+      app: bidder
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bidder
+spec:
+  selector:
+    matchLabels:
+      app: bidder
+  serviceName: bidder-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: bidder
+    spec:
+      containers:
+      - name: bidder
+        imagePullPolicy: IfNotPresent
+        image: "jacamars/rtb4free:v1"
+        command:
+          - "bash"
+          - "-c"
+          - "sleep 5 && ./wait-for-it.sh kafka-cs:9092 -t 120 && ./wait-for-it.sh zerospike-cs:6000 -t 120 && sleep 1; ./rtb4free"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 8080
+          name: web
+        env:
+          - name: BROKERLIST
+            value: "kafka-cs:9092"
+          - name: PUBSUB
+            value: "zerospike-cs"
+          - name: EXTERNAL
+            value: "http://bidder-cs:8080"
+          - name: ADMINPORT
+            value: "0"
+          - name: ACCOUNTING
+            value: "accountingsystem"
+          - name: FREQGOV
+            value: "false"
+          - name: INDEXPAGE
+            value: "/index.html"

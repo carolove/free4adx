@@ -1,0 +1,86 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zerospike-hs
+  labels:
+    app: zerospike
+spec:
+  ports:
+  - port: 6000
+    name: subscribe
+  - port: 6001
+    name: publish
+  - port: 6002
+    name: broadcast
+  clusterIP: None
+  selector:
+    app: zerospike
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zerospike-cs
+  labels:
+    app: zerospike
+spec:
+  ports:
+  - port: 6000
+    name: subscribe
+  - port: 6001
+    name: publish
+  - port: 6002
+    name: broadcast
+  selector:
+    app: zerospike
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: zerospike-pdb
+spec:
+  selector:
+    matchLabels:
+      app: zerospike
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zerospike
+spec:
+  selector:
+    matchLabels:
+      app: zerospike
+  serviceName: zerospike-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: zerospike
+    spec:
+      containers:
+      - name: zerospike
+        imagePullPolicy: IfNotPresent
+        image: "jacamars/zerospike:v1"
+        command:
+          - "bash"
+          - "-c"
+          - 'sleep 5 && ./wait-for-it.sh kafka-cs:9092 -t 120 && sleep 1; ./zerospike'
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 6000
+          name: subscribe
+        - containerPort: 6001
+          name: publish
+        - containerPort: 6002
+          name: broadcast
+        env:
+          - name: BROKERLIST
+            value: "kafka-cs:9092"

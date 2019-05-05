@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-hs
+  labels:
+    app: kibana
+spec:
+  ports:
+  - port: 5601
+    name: web
+  clusterIP: None
+  selector:
+    app: kibana
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-cs
+  labels:
+    app: kibana
+spec:
+  ports:
+  - port: 5601
+    name: web
+  selector:
+    app: kibana
+  type: NodePort
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: kibana-pdb
+spec:
+  selector:
+    matchLabels:
+      app: kibana
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kibana
+spec:
+  selector:
+    matchLabels:
+      app: kibana
+  serviceName: kibana-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+      - name: kibana
+        imagePullPolicy: IfNotPresent
+        image: "docker.elastic.co/kibana/kibana:6.2.2"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 5601
+          name: web
+        env:
+          - name: "SERVER_NAME"
+            value: "elastic1-cs"
+          - name: ELASTICSEARCH_URL
+            value: "http://elastic1-cs:9200"

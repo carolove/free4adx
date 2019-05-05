@@ -1,0 +1,90 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crosstalk-hs
+  labels:
+    app: crosstalk
+spec:
+  ports:
+  - port: 8200
+    name: web
+  - port: 8100
+    name: control
+  clusterIP: None
+  selector:
+    app: crosstalk
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crosstalk-cs
+  labels:
+    app: crosstalk
+spec:
+  ports:
+  - port: 8200
+    name: web
+  - port: 8100
+    name: control
+  selector:
+    app: crosstalk
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: crosstalk-pdb
+spec:
+  selector:
+    matchLabels:
+      app: crosstalk
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: crosstalk
+spec:
+  selector:
+    matchLabels:
+      app: crosstalk
+  serviceName: crosstalk-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: crosstalk
+    spec:
+      containers:
+      - name: crosstalk
+        imagePullPolicy: IfNotPresent
+        image: "jacamars/crosstalk:v1"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 8200
+          name: web
+        - containerPort: 8100
+          name: control
+        env:
+          - name: REGION
+            value: "US"
+          - name: GHOST
+            value: "elastic1-cs"
+          - name: AHOST
+            value: "elastic1-cs"
+          - name: BROKERLIST
+            value: "kafka-cs:9092"
+          - name: PUBSUB
+            value: "zerospike-cs"
+          - name: CONTROL
+            value: "8100"
+          - name: JDBC
+            value: "jdbc:mysql://mysql-cs/rtb4free?user=ben&password=test"
+          - name: PASSWORD
+            value: "iamspartacus"

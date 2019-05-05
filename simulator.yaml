@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+spec:
+  selector:
+    matchLabels:
+      app: simulator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: simulator
+    spec:
+      containers:
+      - name: simulator
+        imagePullPolicy: IfNotPresent
+        image: "jacamars/rtb4free:v1"
+        command:
+          - "bash"
+          - "-c"
+          - "./wait-for-it.sh bidder-cs:8080 -t 120 && sleep 60;  ./load-elastic -host bidder-cs:8080 -win 10 -pixel 95 -click 2 -sleep 100"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+          limits:
+            memory: "300Mi"
+            cpu: "0.1"

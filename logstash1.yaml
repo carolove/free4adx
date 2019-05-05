@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash1-hs
+  labels:
+    app: logstash1
+spec:
+  ports:
+  - port: 5044
+    name: web
+  clusterIP: None
+  selector:
+    app: logstash1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash1-cs
+  labels:
+    app: logstash1
+spec:
+  ports:
+  - port: 5044
+    name: web
+  selector:
+    app: logstash1
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: logstash1-pdb
+spec:
+  selector:
+    matchLabels:
+      app: logstash1
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: logstash1
+spec:
+  selector:
+    matchLabels:
+      app: logstash1
+  serviceName: logstash1-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: logstash1
+    spec:
+      containers:
+      - name: logstash1
+        imagePullPolicy: IfNotPresent
+        image: "ploh/logstash_pwd"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 5044
+          name: web
+        env:
+          - name: "XPACK_MONITORING_ELASTICSEARCH_URL"
+            value: "http://elastic1-cs:9200"
+          - name: XPACK_MONITORING_ENABLED
+            value: "true"

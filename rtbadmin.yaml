@@ -1,0 +1,99 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rtbadmin-hs
+  labels:
+    app: rtbadmin
+spec:
+  ports:
+  - port: 3000
+    name: web
+  clusterIP: None
+  selector:
+    app: rtbadmin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rtbadmin-cs
+  labels:
+    app: rtbadmin
+spec:
+  ports:
+  - port: 3000
+    name: web
+  selector:
+    app: rtbadmin
+  type: NodePort
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: rtbadmin-pdb
+spec:
+  selector:
+    matchLabels:
+      app: rtbadmin
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rtbadmin
+spec:
+  selector:
+    matchLabels:
+      app: rtbadmin
+  serviceName: rtbadmin-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: rtbadmin
+    spec:
+      containers:
+      - name: rtbadmin
+        imagePullPolicy: IfNotPresent
+        image: "ploh/rtbadmin_open"
+        command:
+          - "bash"
+          - "-c"
+          - "./wait_for_it.sh mysql-cs:3306 --timeout=120; bundle exec rails s -p 3000 -b '0.0.0.0' -e development"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 3000
+          name: web
+        env:
+          - name: CUSTOMER_NAME
+            value: RTB4FREE
+          - name: RTB4FREE_DATABASE_HOST
+            value: mysql-cs
+          - name: RTB4FREE_DATABASE_PORT
+            value: "3306"
+          - name: RTB4FREE_DATABASE_USERNAME
+            value: ben
+          - name: RTB4FREE_DATABASE_PASSWORD
+            value: test
+          - name: RTB4FREE_DATABASE_NAME
+            value: rtb4free
+          - name: ELASTICSEARCH_ENABLE
+            value: "true"
+          - name: ELASTICSEARCH_HOST
+            value: "elastic1-cs:9200"
+          - name: ELASTICSEARCH_KIBANA_URL
+            value: ""
+          - name: RTB_CROSSTALK_REGION_HOSTS
+            value: '{"US" => "crosstalk"}'
+          - name: RTB_CROSSTALK_PORT
+            value: "8100"
+          - name: RTB_CROSSTALK_USER
+            value: ben
+          - name: RTB_CROSSTALK_PASSWORD
+            value: iamspartacus

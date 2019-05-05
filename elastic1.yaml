@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elastic1-hs
+  labels:
+    app: elastic1
+spec:
+  ports:
+  - port: 9200
+    name: web
+  - port: 9300
+    name: http
+  clusterIP: None
+  selector:
+    app: elastic1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elastic1-cs
+  labels:
+    app: elastic1
+spec:
+  ports:
+  - port: 9200
+    name: web
+  - port: 9300
+    name: http
+  selector:
+    app: elastic1
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: elastic1-pdb
+spec:
+  selector:
+    matchLabels:
+      app: elastic1
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elastic1
+spec:
+  selector:
+    matchLabels:
+      app: elastic1
+  serviceName: elastic1-hs
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: elastic1
+    spec:
+      containers:
+      - name: elastic1
+        imagePullPolicy: IfNotPresent
+        image: "docker.elastic.co/elasticsearch/elasticsearch:6.2.2"
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "0.1"
+        ports:
+        - containerPort: 9200
+          name: web
+        - containerPort: 9300
+          name: http
+        env:
+          - name: "discovery.type"
+            value: "single-node"
+          - name: ES_JAVA_OPTS
+            value: "-Xms100m -Xmx100m"
